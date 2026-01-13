@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"runtime"
@@ -12,7 +13,7 @@ import (
 )
 
 var (
-	Version   = "2.3.0-dev"
+	Version   = "2.4.0-dev"
 	BuildTime = "unknown"
 	GitCommit = "unknown"
 )
@@ -85,6 +86,16 @@ type TimeResponse struct {
 	Timestamp    string `json:"timestamp"`
 }
 
+type RandomResponse struct {
+	Number      int      `json:"number"`
+	UUID        string   `json:"uuid"`
+	Color       string   `json:"color"`
+	Quote       string   `json:"quote"`
+	LuckyNumber int      `json:"luckyNumber"`
+	Dice        []int    `json:"dice"`
+	Timestamp   string   `json:"timestamp"`
+}
+
 var startTime = time.Now()
 var requestCount int64
 
@@ -103,6 +114,7 @@ func main() {
 	http.HandleFunc("/api/echo", echoHandler)
 	http.HandleFunc("/api/info", infoHandler)
 	http.HandleFunc("/api/time", timeHandler)
+	http.HandleFunc("/api/random", randomHandler)
 	http.HandleFunc("/", rootHandler)
 
 	log.Printf("Demo App v%s starting on port %s", Version, port)
@@ -131,9 +143,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     </style>
 </head>
 <body>
-    <h1>🚀 Demo App <span class="version-badge">v2.3 开发版</span></h1>
+    <h1>🚀 Demo App <span class="version-badge">v2.4 开发版</span></h1>
     <p>Version: %s</p>
-    <p><strong>🆕 v2.3 新功能：</strong> 添加了 Time API 端点，返回服务器时间信息！</p>
+    <p><strong>🆕 v2.4 新功能：</strong> 添加了 Random API 端点，返回随机数据！</p>
     <h2>Available Endpoints:</h2>
     <div class="endpoint">
         <strong>GET</strong> <code>/health</code> - Health check
@@ -164,6 +176,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     </div>
     <div class="endpoint new-feature">
         <strong>🆕 GET</strong> <code>/api/time</code> - 服务器时间信息 (v2.3新增)
+    </div>
+    <div class="endpoint new-feature">
+        <strong>🆕 GET</strong> <code>/api/random</code> - 随机数据生成 (v2.4新增)
     </div>
 </body>
 </html>`, Version)
@@ -300,6 +315,36 @@ func timeHandler(w http.ResponseWriter, r *http.Request) {
 		WeekOfYear:   week,
 		IsWeekend:    isWeekend,
 		Timestamp:    now.UTC().Format(time.RFC3339),
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func randomHandler(w http.ResponseWriter, r *http.Request) {
+	atomic.AddInt64(&requestCount, 1)
+	
+	colors := []string{"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"}
+	quotes := []string{
+		"代码是写给人看的，顺便能在机器上运行。",
+		"先让它工作，再让它正确，最后让它快。",
+		"简单是可靠的先决条件。",
+		"过早优化是万恶之源。",
+		"好的代码是它自己最好的文档。",
+	}
+	
+	// Generate random dice rolls (3 dice)
+	dice := make([]int, 3)
+	for i := range dice {
+		dice[i] = rand.Intn(6) + 1
+	}
+	
+	response := RandomResponse{
+		Number:      rand.Intn(1000),
+		UUID:        fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", rand.Int63(), rand.Int31()&0xffff, rand.Int31()&0xffff, rand.Int31()&0xffff, rand.Int63()),
+		Color:       colors[rand.Intn(len(colors))],
+		Quote:       quotes[rand.Intn(len(quotes))],
+		LuckyNumber: rand.Intn(100) + 1,
+		Dice:        dice,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	}
 	writeJSON(w, http.StatusOK, response)
 }
