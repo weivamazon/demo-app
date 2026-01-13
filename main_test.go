@@ -61,9 +61,9 @@ func TestHelloHandler(t *testing.T) {
 		query    string
 		expected string
 	}{
-		{"default", "", "Hello, World! 👋"},
-		{"with name", "?name=Test", "Hello, Test! 👋"},
-		{"with chinese", "?name=测试", "Hello, 测试! 👋"},
+		{"default", "", "Hello, World! 👋 (v2.0)"},
+		{"with name", "?name=Test", "Hello, Test! 👋 (v2.0)"},
+		{"with chinese", "?name=测试", "Hello, 测试! 👋 (v2.0)"},
 	}
 
 	for _, tt := range tests {
@@ -90,5 +90,33 @@ func TestHelloHandler(t *testing.T) {
 				t.Errorf("handler returned unexpected message: got %v want %v", response.Message, tt.expected)
 			}
 		})
+	}
+}
+
+func TestFeatureHandler(t *testing.T) {
+	req, err := http.NewRequest("GET", "/api/feature", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(featureHandler)
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response FeatureResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Errorf("failed to parse response: %v", err)
+	}
+
+	if response.Feature != "新功能展示" {
+		t.Errorf("handler returned unexpected feature: got %v want %v", response.Feature, "新功能展示")
+	}
+
+	if response.Version != Version {
+		t.Errorf("handler returned unexpected version: got %v want %v", response.Version, Version)
 	}
 }
