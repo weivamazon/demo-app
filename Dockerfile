@@ -5,21 +5,22 @@ WORKDIR /app
 
 # Copy go mod files
 COPY go.mod ./
+COPY go.sum* ./
 
-# Download dependencies
-RUN go mod download
+# Download dependencies (only if go.sum exists and has content)
+RUN if [ -f go.sum ] && [ -s go.sum ]; then go mod download; fi
 
 # Copy source code
 COPY . .
 
-# Build arguments for version info
-ARG VERSION=1.0.0
+# Build arguments for version info (optional overrides)
 ARG BUILD_TIME
 ARG GIT_COMMIT
 
 # Build the application
+# Note: Version is defined in main.go, only BUILD_TIME and GIT_COMMIT are injected
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-w -s -X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT}" \
+    -ldflags="-w -s -X main.BuildTime=${BUILD_TIME} -X main.GitCommit=${GIT_COMMIT}" \
     -o /app/demo-app .
 
 # Runtime stage
