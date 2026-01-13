@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	Version   = "2.2.0-dev"
+	Version   = "2.3.0-dev"
 	BuildTime = "unknown"
 	GitCommit = "unknown"
 )
@@ -75,6 +75,16 @@ type InfoResponse struct {
 	Timestamp   string `json:"timestamp"`
 }
 
+type TimeResponse struct {
+	ServerTime   string `json:"serverTime"`
+	Timezone     string `json:"timezone"`
+	UnixTime     int64  `json:"unixTime"`
+	DayOfWeek    string `json:"dayOfWeek"`
+	WeekOfYear   int    `json:"weekOfYear"`
+	IsWeekend    bool   `json:"isWeekend"`
+	Timestamp    string `json:"timestamp"`
+}
+
 var startTime = time.Now()
 var requestCount int64
 
@@ -92,6 +102,7 @@ func main() {
 	http.HandleFunc("/api/metrics", metricsHandler)
 	http.HandleFunc("/api/echo", echoHandler)
 	http.HandleFunc("/api/info", infoHandler)
+	http.HandleFunc("/api/time", timeHandler)
 	http.HandleFunc("/", rootHandler)
 
 	log.Printf("Demo App v%s starting on port %s", Version, port)
@@ -120,9 +131,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     </style>
 </head>
 <body>
-    <h1>🚀 Demo App <span class="version-badge">v2.2 开发版</span></h1>
+    <h1>🚀 Demo App <span class="version-badge">v2.3 开发版</span></h1>
     <p>Version: %s</p>
-    <p><strong>🆕 v2.2 新功能：</strong> 添加了 Info API 端点，显示应用详细信息！</p>
+    <p><strong>🆕 v2.3 新功能：</strong> 添加了 Time API 端点，返回服务器时间信息！</p>
     <h2>Available Endpoints:</h2>
     <div class="endpoint">
         <strong>GET</strong> <code>/health</code> - Health check
@@ -150,6 +161,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     </div>
     <div class="endpoint new-feature">
         <strong>🆕 GET</strong> <code>/api/info</code> - 应用详细信息 (v2.2新增)
+    </div>
+    <div class="endpoint new-feature">
+        <strong>🆕 GET</strong> <code>/api/time</code> - 服务器时间信息 (v2.3新增)
     </div>
 </body>
 </html>`, Version)
@@ -266,6 +280,26 @@ func infoHandler(w http.ResponseWriter, r *http.Request) {
 		OS:          runtime.GOOS,
 		Arch:        runtime.GOARCH,
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func timeHandler(w http.ResponseWriter, r *http.Request) {
+	atomic.AddInt64(&requestCount, 1)
+	
+	now := time.Now()
+	_, week := now.ISOWeek()
+	dayOfWeek := now.Weekday()
+	isWeekend := dayOfWeek == time.Saturday || dayOfWeek == time.Sunday
+	
+	response := TimeResponse{
+		ServerTime:   now.Format("2006-01-02 15:04:05"),
+		Timezone:     now.Location().String(),
+		UnixTime:     now.Unix(),
+		DayOfWeek:    dayOfWeek.String(),
+		WeekOfYear:   week,
+		IsWeekend:    isWeekend,
+		Timestamp:    now.UTC().Format(time.RFC3339),
 	}
 	writeJSON(w, http.StatusOK, response)
 }
