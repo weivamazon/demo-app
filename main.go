@@ -6,11 +6,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
+	"sync/atomic"
 	"time"
 )
 
 var (
-	Version   = "2.0.0-dev"
+	Version   = "2.1.0-dev"
 	BuildTime = "unknown"
 	GitCommit = "unknown"
 )
@@ -46,7 +48,24 @@ type FeatureResponse struct {
 	Timestamp   string `json:"timestamp"`
 }
 
+type MetricsResponse struct {
+	RequestCount int64   `json:"requestCount"`
+	MemoryUsage  string  `json:"memoryUsage"`
+	GoRoutines   int     `json:"goRoutines"`
+	Uptime       string  `json:"uptime"`
+	Timestamp    string  `json:"timestamp"`
+}
+
+type EchoResponse struct {
+	Echo      string            `json:"echo"`
+	Headers   map[string]string `json:"headers"`
+	Method    string            `json:"method"`
+	Path      string            `json:"path"`
+	Timestamp string            `json:"timestamp"`
+}
+
 var startTime = time.Now()
+var requestCount int64
 
 func main() {
 	port := os.Getenv("PORT")
@@ -59,6 +78,8 @@ func main() {
 	http.HandleFunc("/api/hello", helloHandler)
 	http.HandleFunc("/api/status", statusHandler)
 	http.HandleFunc("/api/feature", featureHandler)
+	http.HandleFunc("/api/metrics", metricsHandler)
+	http.HandleFunc("/api/echo", echoHandler)
 	http.HandleFunc("/", rootHandler)
 
 	log.Printf("Demo App v%s starting on port %s", Version, port)
@@ -70,12 +91,13 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	atomic.AddInt64(&requestCount, 1)
 	
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, `<!DOCTYPE html>
 <html>
 <head>
-    <title>Demo App v2.0</title>
+    <title>Demo App v2.1</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; background: #f0f8ff; }
         h1 { color: #2e8b57; }
@@ -86,9 +108,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     </style>
 </head>
 <body>
-    <h1>🚀 Demo App <span class="version-badge">v2.0 开发版</span></h1>
+    <h1>🚀 Demo App <span class="version-badge">v2.1 开发版</span></h1>
     <p>Version: %s</p>
-    <p><strong>🆕 新功能：</strong> 添加了 Feature API 端点！</p>
+    <p><strong>🆕 v2.1 新功能：</strong> 添加了 Metrics 和 Echo API 端点！</p>
     <h2>Available Endpoints:</h2>
     <div class="endpoint">
         <strong>GET</strong> <code>/health</code> - Health check
@@ -105,8 +127,14 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     <div class="endpoint">
         <strong>GET</strong> <code>/api/status</code> - Application status with uptime
     </div>
+    <div class="endpoint">
+        <strong>GET</strong> <code>/api/feature</code> - 功能展示
+    </div>
     <div class="endpoint new-feature">
-        <strong>🆕 GET</strong> <code>/api/feature</code> - 新功能展示 (v2.0新增)
+        <strong>🆕 GET</strong> <code>/api/metrics</code> - 应用指标 (v2.1新增)
+    </div>
+    <div class="endpoint new-feature">
+        <strong>🆕 GET/POST</strong> <code>/api/echo</code> - 请求回显 (v2.1新增)
     </div>
 </body>
 </html>`, Version)
@@ -160,11 +188,53 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func featureHandler(w http.ResponseWriter, r *http.Request) {
+	atomic.AddInt64(&requestCount, 1)
 	response := FeatureResponse{
 		Feature:     "新功能展示",
-		Description: "这是 v2.0 开发版新增的功能端点，用于测试版本回滚",
+		Description: "这是 v2.1 开发版的功能端点",
 		Version:     Version,
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func metricsHandler(w http.ResponseWriter, r *http.Request) {
+	atomic.AddInt64(&requestCount, 1)
+	
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	
+	response := MetricsResponse{
+		RequestCount: atomic.LoadInt64(&requestCount),
+		MemoryUsage:  fmt.Sprintf("%.2f MB", float64(m.Alloc)/1024/1024),
+		GoRoutines:   runtime.NumGoroutine(),
+		Uptime:       time.Since(startTime).Round(time.Second).String(),
+		Timestamp:    time.Now().UTC().Format(time.RFC3339),
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func echoHandler(w http.ResponseWriter, r *http.Request) {
+	atomic.AddInt64(&requestCount, 1)
+	
+	headers := make(map[string]string)
+	for key, values := range r.Header {
+		if len(values) > 0 {
+			headers[key] = values[0]
+		}
+	}
+	
+	echo := r.URL.Query().Get("message")
+	if echo == "" {
+		echo = "Hello from Echo API!"
+	}
+	
+	response := EchoResponse{
+		Echo:      echo,
+		Headers:   headers,
+		Method:    r.Method,
+		Path:      r.URL.Path,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 	writeJSON(w, http.StatusOK, response)
 }
