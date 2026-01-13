@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	Version   = "2.1.0-dev"
+	Version   = "2.2.0-dev"
 	BuildTime = "unknown"
 	GitCommit = "unknown"
 )
@@ -64,6 +64,17 @@ type EchoResponse struct {
 	Timestamp string            `json:"timestamp"`
 }
 
+type InfoResponse struct {
+	AppName     string `json:"appName"`
+	Version     string `json:"version"`
+	Description string `json:"description"`
+	Author      string `json:"author"`
+	GoVersion   string `json:"goVersion"`
+	OS          string `json:"os"`
+	Arch        string `json:"arch"`
+	Timestamp   string `json:"timestamp"`
+}
+
 var startTime = time.Now()
 var requestCount int64
 
@@ -80,6 +91,7 @@ func main() {
 	http.HandleFunc("/api/feature", featureHandler)
 	http.HandleFunc("/api/metrics", metricsHandler)
 	http.HandleFunc("/api/echo", echoHandler)
+	http.HandleFunc("/api/info", infoHandler)
 	http.HandleFunc("/", rootHandler)
 
 	log.Printf("Demo App v%s starting on port %s", Version, port)
@@ -108,9 +120,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     </style>
 </head>
 <body>
-    <h1>🚀 Demo App <span class="version-badge">v2.1 开发版</span></h1>
+    <h1>🚀 Demo App <span class="version-badge">v2.2 开发版</span></h1>
     <p>Version: %s</p>
-    <p><strong>🆕 v2.1 新功能：</strong> 添加了 Metrics 和 Echo API 端点！</p>
+    <p><strong>🆕 v2.2 新功能：</strong> 添加了 Info API 端点，显示应用详细信息！</p>
     <h2>Available Endpoints:</h2>
     <div class="endpoint">
         <strong>GET</strong> <code>/health</code> - Health check
@@ -135,6 +147,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     </div>
     <div class="endpoint new-feature">
         <strong>🆕 GET/POST</strong> <code>/api/echo</code> - 请求回显 (v2.1新增)
+    </div>
+    <div class="endpoint new-feature">
+        <strong>🆕 GET</strong> <code>/api/info</code> - 应用详细信息 (v2.2新增)
     </div>
 </body>
 </html>`, Version)
@@ -235,6 +250,22 @@ func echoHandler(w http.ResponseWriter, r *http.Request) {
 		Method:    r.Method,
 		Path:      r.URL.Path,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func infoHandler(w http.ResponseWriter, r *http.Request) {
+	atomic.AddInt64(&requestCount, 1)
+	
+	response := InfoResponse{
+		AppName:     "Demo App",
+		Version:     Version,
+		Description: "A demo application for CI/CD pipeline testing",
+		Author:      "CI/CD Platform Team",
+		GoVersion:   runtime.Version(),
+		OS:          runtime.GOOS,
+		Arch:        runtime.GOARCH,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	}
 	writeJSON(w, http.StatusOK, response)
 }
