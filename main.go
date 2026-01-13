@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	Version   = "1.0.0"
+	Version   = "1.1.0-dev"
 	BuildTime = "unknown"
 	GitCommit = "unknown"
 )
@@ -32,6 +32,15 @@ type HelloResponse struct {
 	Timestamp string `json:"timestamp"`
 }
 
+type StatusResponse struct {
+	Status      string `json:"status"`
+	Environment string `json:"environment"`
+	Uptime      string `json:"uptime"`
+	Timestamp   string `json:"timestamp"`
+}
+
+var startTime = time.Now()
+
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -41,6 +50,7 @@ func main() {
 	http.HandleFunc("/health", healthHandler)
 	http.HandleFunc("/version", versionHandler)
 	http.HandleFunc("/api/hello", helloHandler)
+	http.HandleFunc("/api/status", statusHandler)
 	http.HandleFunc("/", rootHandler)
 
 	log.Printf("Demo App v%s starting on port %s", Version, port)
@@ -81,6 +91,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
     <div class="endpoint">
         <strong>GET</strong> <code>/api/hello?name=YourName</code> - Personalized greeting
     </div>
+    <div class="endpoint">
+        <strong>GET</strong> <code>/api/status</code> - Application status with uptime
+    </div>
 </body>
 </html>`, Version)
 }
@@ -111,6 +124,23 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 	response := HelloResponse{
 		Message:   fmt.Sprintf("Hello, %s! 👋", name),
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func statusHandler(w http.ResponseWriter, r *http.Request) {
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = "development"
+	}
+	
+	uptime := time.Since(startTime)
+	
+	response := StatusResponse{
+		Status:      "running",
+		Environment: env,
+		Uptime:      uptime.Round(time.Second).String(),
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	}
 	writeJSON(w, http.StatusOK, response)
 }
