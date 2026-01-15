@@ -40,5 +40,8 @@ USER appuser
 EXPOSE 8000
 
 ENV PORT=8000
+ENV OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
+ENV OTEL_SERVICE_NAME=demo-app
+ENV APP_ENV=production
 
 CMD ["/app/demo-app"]
